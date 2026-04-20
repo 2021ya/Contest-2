@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>全国旅游大数据驾驶舱 | 深空科技感 | 全屏适配修复版</title>
+    <!-- ECharts 核心库 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+            font-family: 'Segoe UI', 'Poppins', 'Inter', 'Microsoft YaHei', sans-serif;
+            color: #eef5ff;
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        /* 动态网格背景 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .dashboard {
+            max-width: 1600px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+            backdrop-filter: blur(2px);
+        }
+
+        /* 标题栏 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+            padding-bottom: 15px;
+        }
+        .title-section h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #FFFFFF, #3bc9ff, #9d4eff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: 1px;
+        }
+        .title-section p {
+            color: #8e9ecc;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        .badge {
+            background: rgba(16, 32, 64, 0.6);
+            backdrop-filter: blur(8px);
+            padding: 8px 18px;
+            border-radius: 40px;
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            font-size: 0.85rem;
+        }
+        .badge i { margin-right: 6px; color: #3bc9ff; }
+
+        /* KPI卡片 */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .kpi-card {
+            background: rgba(12, 20, 35, 0.65);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(59, 201, 255, 0.25);
+            padding: 20px 18px;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            border-color: #3bc9ff;
+            box-shadow: 0 12px 28px rgba(0, 180, 255, 0.2);
+        }
+        .kpi-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #a0b3d9;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .kpi-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(145deg, #fff, #6ac8ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            line-height: 1;
+        }
+        .kpi-sub {
+            font-size: 0.8rem;
+            color: #5d7bb3;
+            margin-top: 8px;
+        }
+        .trend-up { color: #2ee0a0; font-weight: 500; }
+
+        /* 地图+右侧面板 */
+        .map-right {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+        .map-container {
+            flex: 2;
+            min-width: 280px;
+            background: rgba(8, 14, 26, 0.6);
+            backdrop-filter: blur(8px);
+            border-radius: 32px;
+            border: 1px solid rgba(59, 201, 255, 0.3);
+            overflow: hidden;
+            padding: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            position: relative;
+            /* 确保内部图表容器高度稳定 */
+            display: flex;
+            flex-direction: column;
+        }
+        .map-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 12px 8px 12px;
+            color: #bbd4ff;
+            font-size: 0.9rem;
+            border-bottom: 1px dashed #2c3f5f;
+            flex-shrink: 0;
+        }
+        #chinaMap {
+            width: 100%;
+            height: 500px;
+            min-height: 500px;
+            flex-shrink: 0;
+        }
+        /* 地图降级面板 */
+        .fallback-map-panel {
+            width: 100%;
+            height: 500px;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .province-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 20, 40, 0.5);
+            padding: 10px 12px;
+            border-radius: 16px;
+            border-left: 3px solid #3bc9ff;
+        }
+        .province-name { font-weight: 600; }
+        .province-value { font-family: monospace; font-size: 1.1rem; color: #6bc8ff; }
+
+        .right-panel {
+            flex: 1.2;
+            min-width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .glass-card {
+            background: rgba(12, 20, 35, 0.65);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(59, 201, 255, 0.25);
+            padding: 18px 20px;
+        }
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 18px;
+            border-left: 4px solid #3bc9ff;
+            padding-left: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .rank-list { list-style: none; }
+        .rank-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(72, 120, 184, 0.2);
+            font-size: 0.95rem;
+        }
+        .rank-number {
+            width: 28px;
+            height: 28px;
+            background: rgba(59, 201, 255, 0.15);
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 12px;
+            color: #6bc8ff;
+        }
+        .hot-tag {
+            background: linear-gradient(95deg, #1e2a47, #0f172f);
+            padding: 6px 12px;
+            border-radius: 24px;
+            font-size: 0.75rem;
+            border: 0.5px solid #3bc9ff60;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #1e2a3a;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3bc9ff, #9d4eff);
+            border-radius: 6px;
+        }
+        .trend-section {
+            background: rgba(12, 20, 35, 0.65);
+            backdrop-filter: blur(8px);
+            border-radius: 32px;
+            border: 1px solid rgba(59, 201, 255, 0.25);
+            padding: 16px 20px;
+            margin-top: 12px;
+        }
+        /* 趋势图容器强制高度 */
+        #trendChart {
+            width: 100%;
+            height: 300px;
+            min-height: 300px;
+        }
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #050a14;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: opacity 0.8s;
+        }
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 3px solid #1e3a5f;
+            border-top: 3px solid #3bc9ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @media (max-width: 1000px) {
+            .map-right { flex-direction: column; }
+            .kpi-number { font-size: 1.8rem; }
+            body { padding: 12px; }
+            #chinaMap { height: 400px; min-height: 400px; }
+        }
+        .retry-btn {
+            background: rgba(59, 201, 255, 0.2);
+            border: 1px solid #3bc9ff;
+            border-radius: 32px;
+            padding: 6px 14px;
+            color: #3bc9ff;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: 0.2s;
+        }
+        .retry-btn:hover { background: #3bc9ff20; transform: scale(1.02); }
+    </style>
+</head>
+<body>
+<div class="loader-overlay" id="loader">
+    <div class="loader"></div>
+    <p style="margin-top: 20px; color:#9bc5ff;">正在载入数字孪生地图数据 ...</p>
+</div>
+
+<div class="dashboard" style="display: none;" id="dashboardMain">
+    <div class="header">
+        <div class="title-section">
+            <h1><i class="fas fa-globe-asia"></i> 睿行视界 · 全国数据可视化系统</h1>
+            <p>全国全域旅游态势感知 | 实时数据驾驶舱 | 全屏自适应</p>
+        </div>
+        <div class="badge">
+            <i class="fas fa-chart-line"></i> 动态模拟 · 2025 Q2 趋势预测
+        </div>
+    </div>
+
+    <!-- KPI 指标层 -->
+    <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-title"><i class="fas fa-users"></i> 年度游客总量</div><div class="kpi-number">38.6<span style="font-size:1.2rem;">亿</span></div><div class="kpi-sub"><span class="trend-up"><i class="fas fa-arrow-up"></i> +15.8%</span> 同比去年</div></div>
+        <div class="kpi-card"><div class="kpi-title"><i class="fas fa-coins"></i> 旅游总收入</div><div class="kpi-number">4.23<span style="font-size:1.2rem;">万亿</span></div><div class="kpi-sub"><span class="trend-up"><i class="fas fa-arrow-up"></i> +22.3%</span> 消费升级显著</div></div>
+        <div class="kpi-card"><div class="kpi-title"><i class="fas fa-city"></i> 热门目的地覆盖</div><div class="kpi-number">312<span style="font-size:1.2rem;">城</span></div><div class="kpi-sub">4A级以上景区参与率 92%</div></div>
+        <div class="kpi-card"><div class="kpi-title"><i class="fas fa-chart-simple"></i> 文旅融合指数</div><div class="kpi-number">96.7<span style="font-size:1.2rem;">pts</span></div><div class="kpi-sub">数字化满意度 +28%</div></div>
+    </div>
+
+    <!-- 核心地图 + 右侧榜单 -->
+    <div class="map-right">
+        <div class="map-container" id="mapContainer">
+            <div class="map-header">
+                <span><i class="fas fa-map-marked-alt"></i> 全国各省旅游热度分布 (游客量/亿人次)</span>
+                <span><i class="fas fa-dot-circle"></i> 颜色越深 · 热度越高</span>
+            </div>
+            <div id="chinaMap" style="height: 500px; width: 100%;"></div>
+        </div>
+
+        <div class="right-panel">
+            <div class="glass-card">
+                <div class="card-title"><i class="fas fa-trophy"></i> 省份旅游热度 TOP5</div>
+                <div id="barRank" style="height: 240px; width: 100%;"></div>
+            </div>
+            <div class="glass-card">
+                <div class="card-title"><i class="fas fa-fire-flame-curved"></i> 现象级热门城市</div>
+                <div class="rank-list">
+                    <div class="rank-item"><span><span class="rank-number">1</span> 北京</span> <span class="hot-tag"><i class="fas fa-map-pin"></i> 故宫·环球影城 热度 98</span></div>
+                    <div class="rank-item"><span><span class="rank-number">2</span> 上海</span> <span class="hot-tag"><i class="fas fa-map-pin"></i> 迪士尼·外滩 热度 96</span></div>
+                    <div class="rank-item"><span><span class="rank-number">3</span> 重庆</span> <span class="hot-tag"><i class="fas fa-map-pin"></i> 8D魔幻夜景 热度 94</span></div>
+                    <div class="rank-item"><span><span class="rank-number">4</span> 成都</span> <span class="hot-tag"><i class="fas fa-map-pin"></i> 熊猫·美食之都 热度 92</span></div>
+                    <div class="rank-item"><span><span class="rank-number">5</span> 西安</span> <span class="hot-tag"><i class="fas fa-map-pin"></i> 大唐不夜城 热度 90</span></div>
+                </div>
+                <div style="margin-top: 12px;">
+                    <div class="city-hot"><span>🔥 新晋黑马: 淄博 / 天水 / 泉州</span> <span class="trend-up">搜索 +215%</span></div>
+                    <div class="progress-bar mt-2" style="margin-top: 8px;"><div class="progress-fill" style="width: 78%;"></div></div>
+                </div>
+            </div>
+            <div class="glass-card">
+                <div class="card-title"><i class="fas fa-microchip"></i> 智慧文旅指数</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px;">
+                    <span class="hot-tag"><i class="fas fa-robot"></i> AI 行程规划</span>
+                    <span class="hot-tag"><i class="fas fa-vr-cardboard"></i> VR 云游景区</span>
+                    <span class="hot-tag"><i class="fas fa-percent"></i> 数字门票渗透率 67%</span>
+                    <span class="hot-tag"><i class="fas fa-chart-line"></i> 夜游经济 +42%</span>
+                </div>
+                <div style="margin-top: 20px;">
+                    <div>非遗旅游热度同比</div>
+                    <div class="progress-bar mt-1"><div class="progress-fill" style="width: 88%;"></div></div>
+                    <div class="kpi-sub mt-1">非遗文创消费增速 88% ↑</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部趋势图表 -->
+    <div class="trend-section">
+        <div class="card-title"><i class="fas fa-chart-line"></i> 全国月度游客接待量趋势 (2024-2025)  <span style="font-size:0.7rem;">节假日脉冲明显</span></div>
+        <div id="trendChart" style="height: 300px; width: 100%;"></div>
+    </div>
+</div>
+
+<script>
+    // ==================== 数据定义 ====================
+    const provinceData = [
+        { name: '广东省', value: 8.2 }, { name: '江苏省', value: 7.5 }, { name: '浙江省', value: 6.9 },
+        { name: '四川省', value: 6.1 }, { name: '河南省', value: 5.8 }, { name: '山东省', value: 5.6 },
+        { name: '湖北省', value: 5.2 }, { name: '湖南省', value: 5.0 }, { name: '安徽省', value: 4.3 },
+        { name: '福建省', value: 4.9 }, { name: '河北省', value: 3.8 }, { name: '陕西省', value: 4.2 },
+        { name: '云南省', value: 4.7 }, { name: '广西壮族自治区', value: 4.1 }, { name: '贵州省', value: 3.6 },
+        { name: '江西省', value: 3.9 }, { name: '辽宁省', value: 2.9 }, { name: '黑龙江省', value: 2.4 },
+        { name: '吉林省', value: 2.3 }, { name: '山西省', value: 2.8 }, { name: '内蒙古自治区', value: 2.0 },
+        { name: '新疆维吾尔自治区', value: 2.1 }, { name: '甘肃省', value: 2.2 }, { name: '海南省', value: 1.9 },
+        { name: '宁夏回族自治区', value: 0.9 }, { name: '青海省', value: 0.8 }, { name: '西藏自治区', value: 0.7 },
+        { name: '天津市', value: 1.5 }, { name: '上海市', value: 3.2 }, { name: '重庆市', value: 4.0 }, { name: '北京市', value: 3.3 }
+    ];
+
+    const top5 = [...provinceData].sort((a,b)=>b.value - a.value).slice(0,5);
+    const top5Names = top5.map(item => item.name);
+    const top5Values = top5.map(item => item.value);
+
+    const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    const touristTrend = [2.8, 3.9, 3.1, 3.4, 4.2, 3.9, 5.2, 5.5, 4.1, 5.9, 3.5, 3.2];
+
+    let barChart, lineChart, mapChart = null;
+    let mapLoadAttempted = false;
+
+    // 强制所有图表resize
+    function forceResizeAllCharts() {
+        if (barChart) barChart.resize();
+        if (lineChart) lineChart.resize();
+        if (mapChart) mapChart.resize();
+    }
+
+    // 初始化右侧柱状图和底部折线图 (不依赖地图)
+    function initStaticCharts() {
+        // 柱状图 TOP5
+        const barDom = document.getElementById('barRank');
+        if (barDom) {
+            barChart = echarts.init(barDom);
+            barChart.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                grid: { containLabel: true, left: '10%', right: '5%', top: 10, bottom: 10 },
+                xAxis: { type: 'value', name: '游客量(亿人次)', nameTextStyle: { color: '#9bb9e0' }, axisLabel: { color: '#bbd9ff' }, splitLine: { lineStyle: { color: '#1e405e' } } },
+                yAxis: { type: 'category', data: top5Names, axisLabel: { color: '#e2f0ff', fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },
+                series: [{
+                    data: top5Values, type: 'bar', barWidth: '35%',
+                    itemStyle: { borderRadius: [0, 12, 12, 0], color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                        { offset: 0, color: '#3bc9ff' }, { offset: 1, color: '#9d4eff' }]),
+                        shadowBlur: 12, shadowColor: '#3bc9ff80'
+                    },
+                    label: { show: true, position: 'right', fontWeight: 'bold', color: '#ffffff', formatter: '{c} 亿' }
+                }]
+            });
+        }
+        // 趋势折线图 - 修复X轴显示不全问题: 强制显示所有标签并旋转
+        const lineDom = document.getElementById('trendChart');
+        if (lineDom) {
+            lineChart = echarts.init(lineDom);
+            lineChart.setOption({
+                tooltip: { trigger: 'axis', valueFormatter: (value) => value + ' 亿人次' },
+                grid: { top: 40, left: 50, right: 30, bottom: 40, containLabel: true },
+                xAxis: { 
+                    type: 'category', 
+                    data: months, 
+                    axisLabel: { 
+                        rotate: 35,      // 旋转避免重叠
+                        interval: 0,      // 强制显示所有标签
+                        margin: 12,
+                        color: '#bbd4ff',
+                        fontSize: 11
+                    }, 
+                    axisLine: { lineStyle: { color: '#2c5a7a' } } 
+                },
+                yAxis: { type: 'value', name: '游客量 (亿人次)', nameTextStyle: { color: '#aac9ff' }, axisLabel: { color: '#c3e0ff' }, splitLine: { lineStyle: { color: '#1a3b54' } } },
+                series: [{
+                    data: touristTrend, type: 'line', smooth: true, symbol: 'circle', symbolSize: 8,
+                    lineStyle: { width: 3, color: '#3bc9ff', shadowBlur: 12, shadowColor: '#3bc9ff' },
+                    areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(59,201,255,0.45)' }, { offset: 1, color: 'rgba(59,201,255,0.02)' }]) },
+                    itemStyle: { color: '#ffdd77', borderColor: '#ffffff', borderWidth: 1.5 },
+                    label: { show: true, position: 'top', color: '#eef5ff', fontSize: 10, formatter: '{c} 亿' }
+                }]
+            });
+        }
+    }
+
+    // 显示地图降级方案 (省份数据列表)
+    function showFallbackMapUI() {
+        const mapContainer = document.getElementById('mapContainer');
+        const mapDiv = document.getElementById('chinaMap');
+        if (!mapContainer) return;
+        if (mapDiv) mapDiv.style.display = 'none';
+        const oldFallback = document.getElementById('fallbackMapPanel');
+        if (oldFallback) oldFallback.remove();
+        
+        const fallbackDiv = document.createElement('div');
+        fallbackDiv.id = 'fallbackMapPanel';
+        fallbackDiv.className = 'fallback-map-panel';
+        fallbackDiv.style.height = '500px';
+        fallbackDiv.style.overflowY = 'auto';
+        const sorted = [...provinceData].sort((a,b) => b.value - a.value);
+        sorted.forEach(prov => {
+            const row = document.createElement('div');
+            row.className = 'province-row';
+            row.innerHTML = `<span class="province-name"><i class="fas fa-map-marker-alt" style="margin-right:8px; color:#3bc9ff;"></i>${prov.name}</span>
+                             <span class="province-value"><strong>${prov.value} 亿</strong> <span style="font-size:12px;">人次</span></span>`;
+            fallbackDiv.appendChild(row);
+        });
+        const tip = document.createElement('div');
+        tip.style.textAlign = 'center';
+        tip.style.marginTop = '12px';
+        tip.style.padding = '12px';
+        tip.innerHTML = '<i class="fas fa-globe" style="margin-right:6px;"></i> 地图数据无法加载，已切换至省份热度列表 ⚡<br><button class="retry-btn" id="retryMapBtn"><i class="fas fa-sync-alt"></i> 重试加载地图</button>';
+        fallbackDiv.appendChild(tip);
+        mapContainer.appendChild(fallbackDiv);
+        
+        document.getElementById('retryMapBtn')?.addEventListener('click', () => {
+            if (fallbackDiv) fallbackDiv.remove();
+            if (mapDiv) mapDiv.style.display = 'block';
+            loadChinaMapWithGeoJSON(true);
+        });
+    }
+
+    // 核心: 通过GeoJSON加载并注册中国地图
+    async function loadChinaMapWithGeoJSON(isRetry = false) {
+        const mapDiv = document.getElementById('chinaMap');
+        if (!mapDiv) return;
+        if (mapChart) {
+            mapChart.dispose();
+            mapChart = null;
+        }
+        mapDiv.style.opacity = '0.6';
+        const geoJsonUrl = 'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json';
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+            const response = await fetch(geoJsonUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const geoJson = await response.json();
+            let features = geoJson.features;
+            if (features && features.length) {
+                const provinceFeatures = features.filter(f => f.properties && (f.properties.level === 'province' || f.properties.parent_code === '100000'));
+                if (provinceFeatures.length > 0) geoJson.features = provinceFeatures;
+                else console.warn("未精确过滤省级，使用全部features");
+            }
+            echarts.registerMap('china', geoJson);
+            
+            mapChart = echarts.init(mapDiv);
+            const mapOption = {
+                tooltip: { trigger: 'item', backgroundColor: 'rgba(6,20,36,0.9)', borderColor: '#3bc9ff', borderWidth: 1,
+                    formatter: (params) => `<strong>${params.name}</strong><br/>游客接待量: ${params.value ? params.value + ' 亿人次' : '数据收集中'}` },
+                visualMap: { min: 0, max: 8.5, left: 'left', top: 'bottom', calculable: true,
+                    inRange: { color: ['#0a2f4d', '#1f6392', '#3aa8d6', '#f0b27a', '#e86f6f'] },
+                    textStyle: { color: '#bbd4ff' },
+                    pieces: [{ min: 0, max: 1.5, label: '低热度区' }, { min: 1.5, max: 3.5, label: '潜力区' }, { min: 3.5, max: 5.5, label: '热门区' }, { min: 5.5, max: 8.5, label: '爆火区' }]
+                },
+                series: [{
+                    name: '游客量(亿人次)', type: 'map', map: 'china', roam: true, zoom: 1.2,
+                    label: { show: true, color: '#c3e2ff', fontSize: 10, formatter: (p) => p.name.length > 4 ? p.name.slice(0,4) : p.name },
+                    emphasis: { label: { show: true, color: '#fff' }, itemStyle: { areaColor: '#50c8ff' } },
+                    itemStyle: { borderColor: '#1e4b6e', borderWidth: 0.8, areaColor: '#0c2b3f', shadowBlur: 6 },
+                    data: provinceData
+                }],
+                backgroundColor: 'transparent'
+            };
+            mapChart.setOption(mapOption);
+            mapChart.on('click', (params) => {
+                const found = provinceData.find(p => p.name === params.name);
+                alert(`✨ ${params.name}\n旅游热度: ${found ? found.value : '暂无'} 亿人次\n文旅项目: 智慧景区覆盖率达92%`);
+            });
+            mapDiv.style.opacity = '1';
+            const fallbackPanel = document.getElementById('fallbackMapPanel');
+            if (fallbackPanel) fallbackPanel.remove();
+            mapDiv.style.display = 'block';
+            // 关键：渲染后确保地图尺寸正确
+            setTimeout(() => { if (mapChart) mapChart.resize(); }, 100);
+        } catch (err) {
+            console.error("地图GeoJSON加载失败:", err);
+            mapDiv.style.opacity = '1';
+            showFallbackMapUI();
+        }
+    }
+
+    // 初始化所有内容，并确保resize
+    async function initDashboard() {
+        initStaticCharts();
+        await loadChinaMapWithGeoJSON();
+        
+        // 隐藏loader 显示主界面
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    document.getElementById('dashboardMain').style.display = 'block';
+                    // 显示后再强制 resize 确保完整渲染
+                    forceResizeAllCharts();
+                    // 额外延迟防止动画影响
+                    setTimeout(forceResizeAllCharts, 200);
+                    setTimeout(forceResizeAllCharts, 600);
+                }, 400);
+            } else {
+                document.getElementById('dashboardMain').style.display = 'block';
+                forceResizeAllCharts();
+            }
+        }, 800);
+        
+        window.addEventListener('resize', () => {
+            forceResizeAllCharts();
+        });
+        
+        // 使用 ResizeObserver 监控地图容器变化
+        const mapContainer = document.getElementById('mapContainer');
+        if (mapContainer && window.ResizeObserver) {
+            const resizeObserver = new ResizeObserver(() => {
+                if (mapChart) mapChart.resize();
+                if (lineChart) lineChart.resize();
+                if (barChart) barChart.resize();
+            });
+            resizeObserver.observe(mapContainer);
+        }
+    }
+    
+    initDashboard();
+</script>
+</body>
+</html>
